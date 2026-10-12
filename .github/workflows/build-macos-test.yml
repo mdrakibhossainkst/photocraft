@@ -1,0 +1,40 @@
+
+name: PhotoCraft macOS Test Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - name: Show toolchain versions
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Build PhotoCraft for Intel Mac
+        run: |
+          MACOSX_DEPLOYMENT_TARGET=11.0 \
+          cargo build --release --locked \
+            -p photocraft \
+            --target x86_64-apple-darwin
+
+      - name: Upload Intel build
+        uses: actions/upload-artifact@v4
+        with:
+          name: photocraft-intel-test
+          path: target/x86_64-apple-darwin/release/photocraft
+          if-no-files-found: error
+          retention-days: 7
