@@ -1,5 +1,5 @@
 
-name: PhotoCraft macOS Test Build
+name: Build PhotoCraft macOS App
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-14
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -19,22 +20,62 @@ jobs:
         with:
           targets: x86_64-apple-darwin
 
-      - name: Show toolchain versions
-        run: |
-          rustc --version
-          cargo --version
-
-      - name: Build PhotoCraft for Intel Mac
+      - name: Build PhotoCraft
         run: |
           MACOSX_DEPLOYMENT_TARGET=11.0 \
           cargo build --release --locked \
             -p photocraft \
             --target x86_64-apple-darwin
 
-      - name: Upload Intel build
+      - name: Create macOS App Bundle
+        run: |
+          APP="PhotoCraft.app"
+
+          mkdir -p "$APP/Contents/MacOS"
+          mkdir -p "$APP/Contents/Resources"
+
+          cp target/x86_64-apple-darwin/release/photocraft \
+            "$APP/Contents/MacOS/PhotoCraft"
+
+          chmod +x "$APP/Contents/MacOS/PhotoCraft"
+
+          cat > "$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+          "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>PhotoCraft</string>
+            <key>CFBundleDisplayName</key>
+            <string>PhotoCraft</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.photocraft.desktop</string>
+            <key>CFBundleExecutable</key>
+            <string>PhotoCraft</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>CFBundleShortVersionString</key>
+            <string>0.7.0</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+          </dict>
+          </plist>
+          PLIST
+
+          plutil -lint "$APP/Contents/Info.plist"
+
+      - name: Package App
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            PhotoCraft.app PhotoCraft-macOS-Intel.zip
+
+      - name: Upload macOS App
         uses: actions/upload-artifact@v4
         with:
-          name: photocraft-intel-test
-          path: target/x86_64-apple-darwin/release/photocraft
+          name: PhotoCraft-macOS-Intel
+          path: PhotoCraft-macOS-Intel.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
